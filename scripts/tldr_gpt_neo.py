@@ -2,7 +2,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import json
 
 device = 'cuda:0'
-base_model_name = 'neulab/docprompting-tldr-gpt-neo-1.3B'
+base_model_name = 'neulab/docprompting-tldr-gpt-neo-125M'
 tokenizer = AutoTokenizer.from_pretrained(base_model_name)
 model = AutoModelForCausalLM.from_pretrained(base_model_name)
 model = model.to(device)
@@ -10,7 +10,10 @@ model = model.to(device)
 with open('data/tldr/fid.cmd_dev.codet5.t10.json', 'r') as f:
     examples = json.load(f)
 
+idx = 0
 for example in examples:
+    print(idx, '/', len(examples))
+    idx += 1
     manual_list = [doc['text'] for doc in example['ctxs']]
     manual_list = "\n".join(manual_list).strip()
     nl = example['question']
@@ -20,6 +23,7 @@ for example in examples:
 
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     input_ids = input_ids.to(device)
+    if input_ids.shape[1] > 2000: continue
     gen_tokens = model.generate(
         input_ids,
         num_beams=5,
