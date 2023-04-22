@@ -20,7 +20,7 @@ for example in examples:
     prompt = f'{tokenizer.bos_token} {manual_list} '
     prompt += f'{tokenizer.sep_token} {nl} {tokenizer.sep_token}'
     print(prompt)
-
+    print('\n=================')
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     input_ids = input_ids.to(device)
     if input_ids.shape[1] > 2000: continue
