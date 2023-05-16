@@ -1,3 +1,6 @@
+import os 
+os.environ['CUDA_VISIBLE_DEVICES'] = '5'
+
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import json 
 import torch
@@ -16,7 +19,7 @@ with open('data/conala/retrieval_results.json', 'r') as f:
 
 NUM_EXAMPLES = 50
 K = 10 # look at top K retrievals  
-results = {}
+results = {} # mapping id -> retrieval -> attention score 
 
 for i in range(NUM_EXAMPLES): 
     example = examples[i]
@@ -50,7 +53,24 @@ for i in range(NUM_EXAMPLES):
             return_dict_in_generate=True,
             output_attentions=True
         )
-        # results[id]['attentions'] = gen_tokens.attentions 
+        attentions = gen_tokens.attentions
+
+        # SECTION BELOW: aggregating attention scores for each retrieval text 
+        attention_mean_sum = 0
+        num_attentions = 0 
+        for token_attention in attentions:
+            num_attentions += 1
+            mean_sum = 0
+            num_tensors = 0 
+            for tensor in token_attention: 
+                num_tensors += 1
+                mean = tensor.mean().item()
+                mean_sum += mean
+                del mean 
+            mean_sum = mean_sum / num_tensors
+            attention_mean_sum += mean_sum
+        attention_mean_sum = attention_mean_sum / num_attentions
+        results[id][j] = attention_mean_sum
 
         gen_tokens = gen_tokens.sequences
         gen_tokens = gen_tokens.reshape(1, -1, gen_tokens.shape[-1])[0][0]
@@ -62,8 +82,13 @@ for i in range(NUM_EXAMPLES):
         print(gen_text)
         print('\n')
 
-# with open('scripts/results.json', "w+") as f: 
-#     json.dump(results, f, indent=2)
+        del attentions # clearing memory 
+        del gen_tokens
+        del gen_text
+        torch.cuda.empty_cache() # clearing memory 
+
+print(results)
+with open('scripts/results.json', "w+") as f: 
+    json.dump(results, f, indent=2)
 
 
-    
